@@ -4,11 +4,8 @@ import SwiftUI
 @MainActor
 class CostSplitViewModel: ObservableObject {
     @Published var projects: [Project] = []
-    @Published var activeProject: Project?
-    @Published var settlements: [Settlement] = []
     
     private let storageKey = "costSplitData"
-    private let activeProjectKey = "costSplitActiveProject"
     
     init() {
         loadData()
@@ -19,18 +16,16 @@ class CostSplitViewModel: ObservableObject {
     func createProject(name: String) {
         let project = Project(name: name)
         projects.append(project)
-        setActiveProject(project)
         saveData()
     }
     
-    func setActiveProject(_ project: Project) {
-        if let index = projects.firstIndex(where: { $0.id == project.id }) {
-            projects[index].lastAccessed = Date()
-            activeProject = projects[index]
-            calculateSettlements()
-            saveData()
-            UserDefaults.standard.set(project.id.uuidString, forKey: activeProjectKey)
-        }
+    func removeProject(_ project: Project) {
+        projects.removeAll { $0.id == project.id }
+        saveData()
+    }
+    
+    func getProject(id: UUID) -> Project? {
+        projects.first { $0.id == id }
     }
     
     // MARK: - Data Management
@@ -39,15 +34,6 @@ class CostSplitViewModel: ObservableObject {
         if let data = UserDefaults.standard.data(forKey: storageKey) {
             do {
                 projects = try JSONDecoder().decode([Project].self, from: data)
-                
-                // Load last active project
-                if let activeProjectId = UserDefaults.standard.string(forKey: activeProjectKey),
-                   let uuid = UUID(uuidString: activeProjectId),
-                   let project = projects.first(where: { $0.id == uuid }) {
-                    setActiveProject(project)
-                } else if let lastProject = projects.max(by: { $0.lastAccessed < $1.lastAccessed }) {
-                    setActiveProject(lastProject)
-                }
             } catch {
                 print("Error loading data: \(error)")
             }
@@ -65,134 +51,115 @@ class CostSplitViewModel: ObservableObject {
     
     // MARK: - People Management
     
-    func addPerson(name: String) {
-        guard var project = activeProject else { return }
-        let person = Person(name: name)
-        project.people.append(person)
-        updateActiveProject(project)
-    }
-    
-    func removePerson(_ person: Person) {
-        guard var project = activeProject else { return }
-        project.people.removeAll { $0.id == person.id }
-        project.expenses.removeAll { expense in
-            expense.paidById == person.id || expense.splitAmongIds.contains(person.id)
-        }
-        updateActiveProject(project)
-    }
-    
-    // MARK: - Expense Management
-    
-    func addExpense(title: String, amount: Decimal, paidById: UUID, splitAmongIds: Set<UUID>) {
-        guard var project = activeProject else { return }
-        let expense = Expense(
-            title: title,
-            amount: amount,
-            paidById: paidById,
-            splitAmongIds: splitAmongIds
-        )
-        project.expenses.append(expense)
-        updateActiveProject(project)
-    }
-    
-    func removeExpense(_ expense: Expense) {
-        guard var project = activeProject else { return }
-        project.expenses.removeAll { $0.id == expense.id }
-        updateActiveProject(project)
-    }
-    
-    func updateExpense(_ expense: Expense, title: String, amount: Decimal, paidById: UUID, splitAmongIds: Set<UUID>) {
-        guard var project = activeProject else { return }
-        if let index = project.expenses.firstIndex(where: { $0.id == expense.id }) {
-            let updatedExpense = Expense(
-                id: expense.id,
-                title: title,
-                amount: amount,
-                paidById: paidById,
-                splitAmongIds: splitAmongIds,
-                date: expense.date
-            )
-            project.expenses[index] = updatedExpense
-            updateActiveProject(project)
-        }
-    }
-    
-    private func updateActiveProject(_ project: Project) {
+    func addPerson(name: String, to project: Project) {
         if let index = projects.firstIndex(where: { $0.id == project.id }) {
-            var updatedProject = project
-            updatedProject.lastAccessed = Date()
-            projects[index] = updatedProject
-            activeProject = updatedProject
-            calculateSettlements()
+            let person = Person(name: name)
+            projects[index].people.append(person)
             saveData()
         }
     }
     
-    // MARK: - Settlement Calculation
+    func removePerson(_ person: Person, from project: Project) {
+        if let index = projects.firstIndex(where: { $0.id == project.id }) {
+            projects[index].people.removeAll { $0.id == person.id }
+            // Also remove this person from expenses
+            projects[index].expenses = projects[index].expenses.filter { expense in
+                expense.paidBy.id != person.id && !expense.participants.contains(where: { $0.id == person.id })
+            }
+            saveData()
+        }
+    }
     
-    private func calculateSettlements() {
-        guard let project = activeProject else {
-            settlements = []
-            return
+    // MARK: - Expense Management
+    
+    func addExpense(title: String, amount: Double, paidBy: Person, participants: [Person], date: Date, to project: Project) {
+        if let index = projects.firstIndex(where: { $0.id == project.id }) {
+            let expense = Expense(
+                title: title,
+                amount: amount,
+                paidBy: paidBy,
+                participants: participants,
+                date: date
+            )
+            projects[index].expenses.append(expense)
+            saveData()
         }
-        
-        var balances: [UUID: Decimal] = [:]
-        
-        // Initialize balances for all people
-        for person in project.people {
-            balances[person.id] = 0
+    }
+    
+    func removeExpense(_ expense: Expense, from project: Project) {
+        if let index = projects.firstIndex(where: { $0.id == project.id }) {
+            projects[index].expenses.removeAll { $0.id == expense.id }
+            saveData()
         }
+    }
+    
+    func updateExpense(_ expense: Expense, title: String, amount: Double, paidBy: Person, participants: [Person], date: Date, in project: Project) {
+        if let projectIndex = projects.firstIndex(where: { $0.id == project.id }),
+           let expenseIndex = projects[projectIndex].expenses.firstIndex(where: { $0.id == expense.id }) {
+            let updatedExpense = Expense(
+                id: expense.id,
+                title: title,
+                amount: amount,
+                paidBy: paidBy,
+                participants: participants,
+                date: date
+            )
+            projects[projectIndex].expenses[expenseIndex] = updatedExpense
+            saveData()
+        }
+    }
+    
+    func getSettlements(for project: Project) -> [Settlement] {
+        var balances: [UUID: Double] = [:]
         
         // Calculate initial balances
         for expense in project.expenses {
-            // Add full amount to payer's balance
-            balances[expense.paidById, default: 0] += expense.amount
+            let paidBy = expense.paidBy
+            let splitAmount = expense.amount / Double(expense.participants.count)
             
-            // Subtract split amount from each participant's balance
-            let splitAmount = expense.amount / Decimal(expense.splitAmongIds.count)
-            for participantId in expense.splitAmongIds {
-                balances[participantId, default: 0] -= splitAmount
+            // Add the full amount to the payer's balance
+            balances[paidBy.id, default: 0] += expense.amount
+            
+            // Subtract each person's share
+            for person in expense.participants {
+                balances[person.id, default: 0] -= splitAmount
             }
         }
         
-        // Create settlements
-        var newSettlements: [Settlement] = []
-        var debtors: [(UUID, Decimal)] = balances.filter { $0.value < 0 }
-            .map { ($0.key, abs($0.value)) }
-            .sorted { $0.1 > $1.1 }
-        var creditors: [(UUID, Decimal)] = balances.filter { $0.value > 0 }
-            .map { ($0.key, $0.value) }
-            .sorted { $0.1 > $1.1 }
+        var settlements: [Settlement] = []
+        let people = project.people
         
-        while !debtors.isEmpty && !creditors.isEmpty {
-            var (debtorId, debtAmount) = debtors.removeLast()
-            var (creditorId, creditAmount) = creditors.removeLast()
+        // Create settlements for negative balances
+        while !balances.isEmpty {
+            guard let maxDebt = balances.min(by: { $0.value < $1.value }),
+                  let maxCredit = balances.max(by: { $0.value < $1.value }),
+                  let debtor = people.first(where: { $0.id == maxDebt.key }),
+                  let creditor = people.first(where: { $0.id == maxCredit.key })
+            else { break }
             
-            let settlementAmount = min(debtAmount, creditAmount)
-            
-            if let debtor = project.people.first(where: { $0.id == debtorId }),
-               let creditor = project.people.first(where: { $0.id == creditorId }) {
-                newSettlements.append(Settlement(
+            let amount = min(abs(maxDebt.value), maxCredit.value)
+            if amount > 0 {
+                settlements.append(Settlement(
                     fromPerson: debtor,
                     toPerson: creditor,
-                    amount: settlementAmount
+                    amount: amount
                 ))
             }
             
-            debtAmount -= settlementAmount
-            creditAmount -= settlementAmount
+            // Update balances
+            balances[maxDebt.key]! += amount
+            balances[maxCredit.key]! -= amount
             
-            if debtAmount > 0 {
-                debtors.append((debtorId, debtAmount))
-                debtors.sort { $0.1 > $1.1 }
+            // Remove settled balances
+            if balances[maxDebt.key]!.isZero {
+                balances.removeValue(forKey: maxDebt.key)
             }
-            if creditAmount > 0 {
-                creditors.append((creditorId, creditAmount))
-                creditors.sort { $0.1 > $1.1 }
+            if balances[maxCredit.key]!.isZero {
+                balances.removeValue(forKey: maxCredit.key)
             }
         }
         
-        settlements = newSettlements
+        return settlements
     }
 }
 

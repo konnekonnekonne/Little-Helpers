@@ -1,8 +1,8 @@
 import Foundation
 
-struct Project: Identifiable, Codable {
+struct Project: Identifiable, Codable, Hashable {
     let id: UUID
-    var name: String
+    let name: String
     var people: [Person]
     var expenses: [Expense]
     var lastAccessed: Date
@@ -14,9 +14,17 @@ struct Project: Identifiable, Codable {
         self.expenses = expenses
         self.lastAccessed = lastAccessed
     }
+    
+    static func == (lhs: Project, rhs: Project) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
 }
 
-struct Person: Identifiable, Codable, Equatable {
+struct Person: Identifiable, Codable, Equatable, Hashable {
     let id: UUID
     var name: String
     
@@ -24,22 +32,30 @@ struct Person: Identifiable, Codable, Equatable {
         self.id = id
         self.name = name
     }
+    
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+    
+    static func == (lhs: Person, rhs: Person) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 struct Expense: Identifiable, Codable {
     let id: UUID
     var title: String
-    var amount: Decimal
-    var paidById: UUID
-    var splitAmongIds: Set<UUID>
+    var amount: Double
+    var paidBy: Person
+    var participants: [Person]
     var date: Date
     
-    init(id: UUID = UUID(), title: String, amount: Decimal, paidById: UUID, splitAmongIds: Set<UUID>, date: Date = Date()) {
+    init(id: UUID = UUID(), title: String, amount: Double, paidBy: Person, participants: [Person], date: Date = Date()) {
         self.id = id
         self.title = title
         self.amount = amount
-        self.paidById = paidById
-        self.splitAmongIds = splitAmongIds
+        self.paidBy = paidBy
+        self.participants = participants
         self.date = date
     }
 }
@@ -48,9 +64,9 @@ struct Settlement: Identifiable {
     let id: UUID
     let fromPerson: Person
     let toPerson: Person
-    let amount: Decimal
+    let amount: Double
     
-    init(id: UUID = UUID(), fromPerson: Person, toPerson: Person, amount: Decimal) {
+    init(id: UUID = UUID(), fromPerson: Person, toPerson: Person, amount: Double) {
         self.id = id
         self.fromPerson = fromPerson
         self.toPerson = toPerson

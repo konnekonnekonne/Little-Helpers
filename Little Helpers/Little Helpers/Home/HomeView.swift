@@ -1,15 +1,14 @@
 import SwiftUI
 
 struct HomeView: View {
-    @EnvironmentObject private var viewModel: AppViewModel
-    @Environment(\.colorScheme) private var colorScheme
+    @StateObject private var viewModel = AppViewModel()
     
     private let columns = [
         GridItem(.adaptive(minimum: 150, maximum: 170), spacing: 20)
     ]
     
     var body: some View {
-        NavigationStack {
+        NavigationView {
             ScrollView {
                 VStack(spacing: 32) {
                     LazyVGrid(columns: columns, spacing: 20) {
@@ -17,27 +16,11 @@ struct HomeView: View {
                             MicroAppCard(app: app)
                         }
                     }
-                    
-                    VStack(spacing: 4) {
-                        Text("No subscriptions, just helpful tools")
-                            .font(.system(.footnote, design: .rounded))
-                            .fontWeight(.medium)
-                        
-                        Text("Tap any helper to get started")
-                            .font(.system(.caption, design: .rounded))
-                            .foregroundColor(.secondary)
-                    }
-                    .padding(.top, 8)
-                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
                 }
-                .padding()
+                .padding(.vertical)
             }
             .navigationTitle("Little Helpers")
-            .navigationBarTitleDisplayMode(.large)
-            .background(
-                Color(colorScheme == .dark ? .black : .systemGray6)
-                    .ignoresSafeArea()
-            )
         }
     }
 }
@@ -59,8 +42,15 @@ struct MicroAppCard: View {
     
     var body: some View {
         NavigationLink {
-            if app.id == "costSplit" {
-                CostSplitProjectsView()
+            switch app.id {
+            case "costSplit":
+                CostSplitView()
+            case "fitnessTimer":
+                FitnessTimerCoordinator().makeRootView()
+            case "toDoList":
+                EmptyView() // TODO: Implement ToDoList
+            default:
+                EmptyView()
             }
         } label: {
             VStack(spacing: 16) {
@@ -92,26 +82,14 @@ struct MicroAppCard: View {
             .frame(maxHeight: .infinity)
             .aspectRatio(1, contentMode: .fit)
             .background(
-                ZStack {
-                    cardGradient
-                    
-                    // Subtle pattern overlay
-                    Circle()
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 100, height: 100)
-                        .blur(radius: 20)
-                        .offset(x: 80, y: -60)
-                }
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .shadow(
-                color: Color.accentColor.opacity(colorScheme == .dark ? 0.3 : 0.2),
-                radius: 15,
-                x: 0,
-                y: 5
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(cardGradient)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24)
+                            .strokeBorder(.white.opacity(0.2), lineWidth: 1)
+                    )
             )
         }
-        .buttonStyle(.plain)
     }
 }
 

@@ -4,49 +4,89 @@ import SwiftUI
 @MainActor
 class CostSplitViewModel: ObservableObject {
     @Published var projects: [Project] = []
+    @Published var lastVisitedProjectId: UUID?
     
     private let storageKey = "costSplitData"
     
     init() {
-        loadData()
+        loadProjects()
+        loadLastVisitedProject()
     }
     
     // MARK: - Project Management
     
     func createProject(name: String) {
         let project = Project(name: name)
-        projects.append(project)
-        saveData()
-    }
-    
-    func removeProject(_ project: Project) {
-        projects.removeAll { $0.id == project.id }
-        saveData()
+        addProject(project)
     }
     
     func getProject(id: UUID) -> Project? {
         projects.first { $0.id == id }
     }
     
-    // MARK: - Data Management
+    func addProject(_ project: Project) {
+        projects.append(project)
+        saveProjects()
+        setLastVisitedProject(project)
+    }
     
-    private func loadData() {
-        if let data = UserDefaults.standard.data(forKey: storageKey) {
-            do {
-                projects = try JSONDecoder().decode([Project].self, from: data)
-            } catch {
-                print("Error loading data: \(error)")
-            }
+    func updateProject(_ project: Project) {
+        if let index = projects.firstIndex(where: { $0.id == project.id }) {
+            projects[index] = project
+            saveProjects()
         }
     }
     
-    private func saveData() {
-        do {
-            let encoded = try JSONEncoder().encode(projects)
-            UserDefaults.standard.set(encoded, forKey: storageKey)
-        } catch {
-            print("Error saving data: \(error)")
+    func deleteProject(_ project: Project) {
+        projects.removeAll { $0.id == project.id }
+        saveProjects()
+        // If we deleted the last visited project, clear it
+        if lastVisitedProjectId == project.id {
+            lastVisitedProjectId = nil
+            saveLastVisitedProject()
         }
+    }
+    
+    // Alias for deleteProject to maintain API compatibility
+    func removeProject(_ project: Project) {
+        deleteProject(project)
+    }
+    
+    // MARK: - Last Visited Project
+    
+    func setLastVisitedProject(_ project: Project) {
+        lastVisitedProjectId = project.id
+        saveLastVisitedProject()
+    }
+    
+    var lastVisitedProject: Project? {
+        guard let id = lastVisitedProjectId else { return nil }
+        return projects.first { $0.id == id }
+    }
+    
+    // MARK: - Data Management
+    
+    private func loadProjects() {
+        if let data = UserDefaults.standard.data(forKey: "costSplitProjects"),
+           let decoded = try? JSONDecoder().decode([Project].self, from: data) {
+            projects = decoded
+        }
+    }
+    
+    private func saveProjects() {
+        if let encoded = try? JSONEncoder().encode(projects) {
+            UserDefaults.standard.set(encoded, forKey: "costSplitProjects")
+        }
+    }
+    
+    private func loadLastVisitedProject() {
+        if let uuidString = UserDefaults.standard.string(forKey: "lastVisitedCostSplitProject") {
+            lastVisitedProjectId = UUID(uuidString: uuidString)
+        }
+    }
+    
+    private func saveLastVisitedProject() {
+        UserDefaults.standard.set(lastVisitedProjectId?.uuidString, forKey: "lastVisitedCostSplitProject")
     }
     
     // MARK: - People Management
@@ -55,7 +95,7 @@ class CostSplitViewModel: ObservableObject {
         if let index = projects.firstIndex(where: { $0.id == project.id }) {
             let person = Person(name: name)
             projects[index].people.append(person)
-            saveData()
+            saveProjects()
         }
     }
     
@@ -66,7 +106,7 @@ class CostSplitViewModel: ObservableObject {
             projects[index].expenses = projects[index].expenses.filter { expense in
                 expense.paidBy.id != person.id && !expense.participants.contains(where: { $0.id == person.id })
             }
-            saveData()
+            saveProjects()
         }
     }
     
@@ -82,14 +122,14 @@ class CostSplitViewModel: ObservableObject {
                 date: date
             )
             projects[index].expenses.append(expense)
-            saveData()
+            saveProjects()
         }
     }
     
     func removeExpense(_ expense: Expense, from project: Project) {
         if let index = projects.firstIndex(where: { $0.id == project.id }) {
             projects[index].expenses.removeAll { $0.id == expense.id }
-            saveData()
+            saveProjects()
         }
     }
     
@@ -105,7 +145,7 @@ class CostSplitViewModel: ObservableObject {
                 date: date
             )
             projects[projectIndex].expenses[expenseIndex] = updatedExpense
-            saveData()
+            saveProjects()
         }
     }
     

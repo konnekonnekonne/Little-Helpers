@@ -2,25 +2,72 @@ import SwiftUI
 
 struct HomeView: View {
     @StateObject private var viewModel = AppViewModel()
+    @State private var searchText = ""
     
     private let columns = [
-        GridItem(.adaptive(minimum: 150, maximum: 170), spacing: 20)
+        GridItem(.adaptive(minimum: 160, maximum: 180), spacing: 16)
     ]
     
+    var filteredApps: [MicroApp] {
+        if searchText.isEmpty {
+            return viewModel.microApps
+        }
+        return viewModel.microApps.filter { app in
+            app.name.localizedCaseInsensitiveContains(searchText) ||
+            app.description.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+    
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ScrollView {
-                VStack(spacing: 32) {
-                    LazyVGrid(columns: columns, spacing: 20) {
-                        ForEach(viewModel.microApps) { app in
+                VStack(alignment: .leading, spacing: 24) {
+                    // Welcome Header
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(greeting)
+                            .font(.title2)
+                            .fontWeight(.medium)
+                        Text("Find the right helper for your task")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal)
+                    
+                    // Search Bar
+                    HStack {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundColor(.secondary)
+                        TextField("Search helpers", text: $searchText)
+                    }
+                    .padding(12)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                    .padding(.horizontal)
+                    
+                    // Grid of Helpers
+                    LazyVGrid(columns: columns, spacing: 16) {
+                        ForEach(filteredApps) { app in
                             MicroAppCard(app: app)
+                                .transition(.scale.combined(with: .opacity))
                         }
                     }
                     .padding(.horizontal)
+                    .animation(.spring(duration: 0.3), value: filteredApps)
                 }
-                .padding(.vertical)
+                .padding(.vertical, 24)
             }
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("Little Helpers")
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
+    
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 0..<12: return "👋 Good morning"
+        case 12..<17: return "👋 Good afternoon"
+        default: return "👋 Good evening"
         }
     }
 }
@@ -28,17 +75,6 @@ struct HomeView: View {
 struct MicroAppCard: View {
     let app: MicroApp
     @Environment(\.colorScheme) private var colorScheme
-    
-    private var cardGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color.accentColor.opacity(0.8),
-                Color.accentColor
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
     
     var body: some View {
         NavigationLink {
@@ -54,42 +90,42 @@ struct MicroAppCard: View {
             }
         } label: {
             VStack(spacing: 16) {
-                // Icon centered at the top
+                // Icon
                 Image(systemName: app.icon)
-                    .font(.system(size: 32, weight: .medium))
-                    .foregroundColor(.white)
+                    .font(.system(size: 28, weight: .medium))
+                    .foregroundStyle(.linearGradient(
+                        colors: [.accentColor, .accentColor.opacity(0.8)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
                     .frame(width: 56, height: 56)
-                    .background(
-                        Circle()
-                            .fill(Color.white.opacity(0.2))
-                    )
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+                    .shadow(color: .accentColor.opacity(0.2), radius: 8, x: 0, y: 4)
                 
-                // Centered text content
-                VStack(spacing: 8) {
+                // Text Content
+                VStack(spacing: 4) {
                     Text(app.name)
-                        .font(.system(.headline, design: .rounded))
-                        .foregroundColor(.white)
+                        .font(.headline)
+                        .foregroundStyle(Color.primary)
                     
                     Text(app.description)
-                        .font(.system(.caption, design: .rounded))
-                        .foregroundColor(.white.opacity(0.9))
+                        .font(.caption)
+                        .foregroundStyle(Color.secondary)
                         .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(2)
                 }
             }
-            .padding()
             .frame(maxWidth: .infinity)
-            .frame(maxHeight: .infinity)
-            .aspectRatio(1, contentMode: .fit)
+            .padding(.vertical, 20)
+            .padding(.horizontal, 12)
             .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(cardGradient)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24)
-                            .strokeBorder(.white.opacity(0.2), lineWidth: 1)
-                    )
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(.background)
+                    .shadow(color: Color(.systemGray4).opacity(0.5), radius: 8, x: 0, y: 4)
             )
         }
+        .buttonStyle(.plain)
     }
 }
 

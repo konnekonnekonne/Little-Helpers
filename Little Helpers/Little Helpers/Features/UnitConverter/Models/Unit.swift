@@ -1,11 +1,27 @@
 import Foundation
 
-enum UnitType: String, CaseIterable {
-    case currency = "💰"
-    case weight = "🏋️"
-    case volume = "🧪"
-    case length = "📏"
-    case temperature = "🌡️"
+enum UnitType: String, CaseIterable, Identifiable, Hashable {
+    case currency = "Currency"
+    case weight = "Weight"
+    case volume = "Volume"
+    case length = "Length"
+    case temperature = "Temperature"
+    
+    var id: Self { self }
+    
+    var emoji: String {
+        switch self {
+        case .currency: return "💰"
+        case .weight: return "🏋️"
+        case .volume: return "🧪"
+        case .length: return "📏"
+        case .temperature: return "🌡️"
+        }
+    }
+    
+    var name: String {
+        return rawValue
+    }
 }
 
 struct Unit: Identifiable, Hashable {

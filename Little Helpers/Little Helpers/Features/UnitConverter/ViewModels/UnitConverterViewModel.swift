@@ -14,6 +14,7 @@ class UnitConverterViewModel: ObservableObject {
     @Published var toUnit: Unit?
     @Published var isOffline: Bool = false
     @Published var lastUpdated: Date?
+    @Published var isRefreshing: Bool = false
     
     private let userDefaults = UserDefaults.standard
     private let lastUpdateKey = "lastCurrencyUpdate"
@@ -32,6 +33,12 @@ class UnitConverterViewModel: ObservableObject {
         if selectedType == .currency {
             updateCurrencyRatesIfNeeded()
         }
+    }
+    
+    func refreshCurrencyRates() {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        fetchCurrencyRates()
     }
     
     private func setDefaultUnits() {
@@ -73,6 +80,10 @@ class UnitConverterViewModel: ObservableObject {
         let now = Date()
         if let lastUpdate = lastUpdated,
            now.timeIntervalSince(lastUpdate) < 24 * 60 * 60 {
+            // Load cached rates
+            if let rates = userDefaults.dictionary(forKey: currencyRatesKey) as? [String: Double] {
+                updateCurrencyUnits(with: rates)
+            }
             return // Less than 24 hours since last update
         }
         
@@ -86,7 +97,10 @@ class UnitConverterViewModel: ObservableObject {
             guard let self = self,
                   let data = data,
                   let rates = try? JSONDecoder().decode(CurrencyResponse.self, from: data) else {
-                self?.isOffline = true
+                DispatchQueue.main.async {
+                    self?.isOffline = true
+                    self?.isRefreshing = false
+                }
                 return
             }
             
@@ -96,6 +110,7 @@ class UnitConverterViewModel: ObservableObject {
                 self.userDefaults.set(self.lastUpdated, forKey: self.lastUpdateKey)
                 self.userDefaults.set(rates.rates, forKey: self.currencyRatesKey)
                 self.isOffline = false
+                self.isRefreshing = false
                 // Reapply default units after updating rates
                 self.setDefaultUnits()
             }
@@ -175,9 +190,4 @@ class UnitConverterViewModel: ObservableObject {
             return String(format: "%.2f", value)
         }
     }
-}
-
-// API Response structure
-struct CurrencyResponse: Codable {
-    let rates: [String: Double]
 } 

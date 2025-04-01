@@ -84,7 +84,9 @@ struct MicroAppCard: View {
             case "fitnessTimer":
                 FitnessTimerCoordinator().makeRootView()
             case "toDoList":
-                EmptyView() // TODO: Implement ToDoList
+                TodoListCoordinator().makeRootView()
+            case "unitConverter":
+                UnitConverterView()
             default:
                 EmptyView()
             }

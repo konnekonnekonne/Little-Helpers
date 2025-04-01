@@ -5,8 +5,8 @@ struct CostSplitView: View {
     @State private var showingAddProject = false
     
     var body: some View {
-        projectsList
-            .navigationTitle("Projects")
+        ProjectListView()
+            .navigationTitle("Cost Split")
             .toolbar {
                 if !viewModel.projects.isEmpty {
                     ToolbarItem(placement: .navigationBarTrailing) {

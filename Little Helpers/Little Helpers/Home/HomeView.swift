@@ -87,6 +87,8 @@ struct MicroAppCard: View {
                 TodoListCoordinator().makeRootView()
             case "unitConverter":
                 UnitConverterView()
+            case "countdown":
+                CountdownView()
             default:
                 EmptyView()
             }

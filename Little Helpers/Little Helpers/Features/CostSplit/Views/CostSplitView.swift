@@ -5,7 +5,7 @@ struct CostSplitView: View {
     @State private var showingAddProject = false
     
     var body: some View {
-        ProjectListView()
+        projectsList
             .navigationTitle("Cost Split")
             .toolbar {
                 if !viewModel.projects.isEmpty {

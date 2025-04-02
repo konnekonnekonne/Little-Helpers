@@ -37,6 +37,11 @@ class CountdownViewModel: ObservableObject {
         saveEvents()
     }
     
+    func deleteEvent(_ event: CountdownEvent) {
+        events.removeAll { $0.id == event.id }
+        saveEvents()
+    }
+    
     func moveEvent(from source: IndexSet, to destination: Int) {
         withAnimation {
             events.move(fromOffsets: source, toOffset: destination)

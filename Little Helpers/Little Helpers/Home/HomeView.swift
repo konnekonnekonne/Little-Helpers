@@ -89,6 +89,8 @@ struct MicroAppCard: View {
                 UnitConverterView()
             case "countdown":
                 CountdownView()
+            case "tipCalculator":
+                TipCalculatorView()
             default:
                 EmptyView()
             }

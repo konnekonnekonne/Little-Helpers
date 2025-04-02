@@ -32,6 +32,12 @@ struct MicroApp: Identifiable, Codable, Equatable {
             description: "Convert between units like length, weight, temperature, and volume"
         ),
         MicroApp(
+            id: "countdown",
+            name: "Countdown",
+            icon: "calendar.badge.clock",
+            description: "Track important dates and upcoming events"
+        ),
+        MicroApp(
             id: "tipCalculator",
             name: "Tip Calculator",
             icon: "percent",
@@ -54,12 +60,6 @@ struct MicroApp: Identifiable, Codable, Equatable {
             name: "Packing List",
             icon: "suitcase.fill",
             description: "Create and reuse packing lists for travel"
-        ),
-        MicroApp(
-            id: "countdown",
-            name: "Countdown",
-            icon: "calendar.badge.clock",
-            description: "Track important dates and upcoming events"
         ),
         MicroApp(
             id: "randomizer",

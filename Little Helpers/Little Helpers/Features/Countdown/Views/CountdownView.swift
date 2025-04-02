@@ -2,26 +2,30 @@ import SwiftUI
 
 struct CountdownView: View {
     @StateObject private var viewModel = CountdownViewModel()
-    @Environment(\.editMode) private var editMode
     
     var body: some View {
-        List {
-            if viewModel.events.isEmpty {
-                ContentUnavailableView(
-                    "No Countdowns",
-                    systemImage: "timer",
-                    description: Text("Add your first countdown to get started")
-                )
-                .listRowBackground(Color.clear)
-            } else {
-                ForEach(viewModel.events) { event in
-                    CountdownCard(event: event, currentTime: viewModel.currentTime)
+        ScrollView {
+            VStack(spacing: 0) {
+                if viewModel.events.isEmpty {
+                    ContentUnavailableView(
+                        "No Countdowns",
+                        systemImage: "timer",
+                        description: Text("Add your first countdown to get started")
+                    )
+                    .padding(.top, 20)
+                } else {
+                    ForEach(sortedEvents) { event in
+                        SwipeableCountdownCard(
+                            event: event,
+                            currentTime: viewModel.currentTime,
+                            onDelete: { viewModel.deleteEvent(event) }
+                        )
+                    }
                 }
-                .onMove(perform: viewModel.moveEvent)
-                .onDelete(perform: viewModel.deleteEvent)
             }
+            .padding(.bottom, 20)
         }
-        .listStyle(.plain)
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("Countdown")
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -31,22 +35,91 @@ struct CountdownView: View {
                     Image(systemName: "plus")
                 }
             }
-            
-            if !viewModel.events.isEmpty {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-            }
         }
         .sheet(isPresented: $viewModel.showingAddEvent) {
             AddCountdownView(viewModel: viewModel)
         }
-        .onChange(of: viewModel.showingAddEvent) { _, isShowing in
-            if !isShowing {
-                editMode?.wrappedValue = .inactive
+        .animation(.smooth, value: viewModel.events)
+    }
+    
+    private var sortedEvents: [CountdownEvent] {
+        let active = viewModel.events.filter { !$0.isCompleted }
+            .sorted { event1, event2 in
+                let time1 = event1.timeComponents(currentDate: viewModel.currentTime)
+                let time2 = event2.timeComponents(currentDate: viewModel.currentTime)
+                return time1.totalSeconds < time2.totalSeconds
+            }
+        let completed = viewModel.events.filter { $0.isCompleted }
+        return active + completed
+    }
+}
+
+struct SwipeableCountdownCard: View {
+    let event: CountdownEvent
+    let currentTime: Date
+    let onDelete: () -> Void
+    
+    @State private var offset: CGFloat = 0
+    @State private var isSwiped: Bool = false
+    
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            // Delete button
+            deleteButton
+            
+            // Card content
+            CountdownCard(event: event, currentTime: currentTime)
+                .background(Color(.systemBackground))
+                .offset(x: offset)
+                .gesture(
+                    DragGesture()
+                        .onChanged(onDragChanged)
+                        .onEnded(onDragEnded)
+                )
+        }
+        .padding(.top, 20)
+        .clipped()
+    }
+    
+    private var deleteButton: some View {
+        Button(action: {
+            withAnimation(.spring(response: 0.3)) {
+                offset = 0
+                isSwiped = false
+                onDelete()
+            }
+        }) {
+            Image(systemName: "trash")
+                .font(.title2)
+                .foregroundStyle(.white)
+                .frame(width: 60, height: .infinity)
+                .background(.red)
+        }
+    }
+    
+    private func onDragChanged(_ value: DragGesture.Value) {
+        let dragAmount = value.translation.width
+        
+        // Only allow left swipe
+        if dragAmount <= 0 {
+            // Add resistance when dragging
+            offset = dragAmount / 2
+        }
+    }
+    
+    private func onDragEnded(_ value: DragGesture.Value) {
+        withAnimation(.spring(response: 0.3)) {
+            let dragAmount = value.translation.width
+            let dragThreshold: CGFloat = -50
+            
+            if dragAmount < dragThreshold {
+                offset = -60
+                isSwiped = true
+            } else {
+                offset = 0
+                isSwiped = false
             }
         }
-        .animation(.smooth, value: viewModel.events)
     }
 }
 

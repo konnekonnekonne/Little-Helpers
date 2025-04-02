@@ -24,7 +24,7 @@ struct CountdownEvent: Identifiable, Codable, Equatable {
         return components.days == 0
     }
     
-    func timeComponents(currentDate: Date = Date()) -> (isNegative: Bool, days: Int, hours: Int, minutes: Int, seconds: Int) {
+    func timeComponents(currentDate: Date = Date()) -> (isNegative: Bool, days: Int, hours: Int, minutes: Int, seconds: Int, totalSeconds: Int) {
         let calendar = Calendar.current
         let components: DateComponents
         let isNegative = currentDate >= date
@@ -35,12 +35,19 @@ struct CountdownEvent: Identifiable, Codable, Equatable {
             components = calendar.dateComponents([.day, .hour, .minute, .second], from: currentDate, to: date)
         }
         
+        let days = abs(components.day ?? 0)
+        let hours = abs(components.hour ?? 0)
+        let minutes = abs(components.minute ?? 0)
+        let seconds = abs(components.second ?? 0)
+        let totalSeconds = days * 86400 + hours * 3600 + minutes * 60 + seconds
+        
         return (
             isNegative: isNegative,
-            days: abs(components.day ?? 0),
-            hours: abs(components.hour ?? 0),
-            minutes: abs(components.minute ?? 0),
-            seconds: abs(components.second ?? 0)
+            days: days,
+            hours: hours,
+            minutes: minutes,
+            seconds: seconds,
+            totalSeconds: totalSeconds
         )
     }
     

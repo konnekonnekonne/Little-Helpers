@@ -22,18 +22,28 @@ private struct CurrencyStatusView: View {
     let isRefreshing: Bool
     let onRefresh: () -> Void
     
+    @State private var showUpdateMessage = false
+    
     var body: some View {
         HStack {
-            if isOffline {
-                Text("Using offline rates")
+            if showUpdateMessage {
+                Text("Exchange rates updated")
                     .foregroundColor(.secondary)
-            }
-            if let lastUpdated = lastUpdated {
-                Text("Last updated: \(lastUpdated)")
-                    .foregroundColor(.secondary)
+                    .transition(.opacity)
             }
             Spacer()
-            Button(action: onRefresh) {
+            Button(action: {
+                onRefresh()
+                withAnimation {
+                    showUpdateMessage = true
+                }
+                // Hide the message after 2 seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    withAnimation {
+                        showUpdateMessage = false
+                    }
+                }
+            }) {
                 Image(systemName: "arrow.clockwise")
                     .rotationEffect(.degrees(isRefreshing ? 360 : 0))
                     .animation(isRefreshing ? Animation.linear(duration: 1).repeatForever(autoreverses: false) : .default, value: isRefreshing)
@@ -132,6 +142,7 @@ struct UnitConverterView: View {
     var body: some View {
         VStack(spacing: 16) {
             UnitTypePicker(selectedType: $viewModel.selectedType)
+                .padding(.horizontal)
             
             if viewModel.selectedType == .currency {
                 CurrencyStatusView(
